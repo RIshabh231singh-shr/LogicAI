@@ -13,6 +13,7 @@ from .services.rag_pipeline import RAGPipeline
 from .services.advanced_retrieval import AdvancedRetrievalEngine
 from .services.tool_registry import ToolRegistry
 from .services.agent_router import QueryRouter
+from .services.memory_service import MemoryService
 
 app = FastAPI(
     title="LogicAI Service",
@@ -28,6 +29,7 @@ rag_pipeline = RAGPipeline(vector_store=vector_store, llm_provider=get_llm_provi
 advanced_retrieval = AdvancedRetrievalEngine(vector_store=vector_store, llm_provider=get_llm_provider())
 tool_registry = ToolRegistry()
 query_router = QueryRouter(rag_pipeline=rag_pipeline, tool_registry=tool_registry)
+memory_service = MemoryService()
 
 class EchoRequest(BaseModel):
     message: str
@@ -93,6 +95,10 @@ class ToolProcessRequest(BaseModel):
 
 class AgentRunRequest(BaseModel):
     query: str = Field(..., description="Query for agent processing")
+
+class MemoryChatRequest(BaseModel):
+    session_id: str = Field(..., description="Unique conversation session ID")
+    prompt: str = Field(..., description="User prompt")
 
 @app.get("/health")
 def health_check():
@@ -315,3 +321,28 @@ def run_agent_endpoint(payload: AgentRunRequest):
     
     agent_output = query_router.run_agent(payload.query)
     return {"success": True, "data": agent_output}
+
+@app.post("/api/v1/memory/chat")
+def memory_chat_endpoint(payload: MemoryChatRequest):
+    if not payload.session_id.strip() or not payload.prompt.strip():
+        raise HTTPException(status_code=400, detail="session_id and prompt are required")
+    
+    # 1. Format conversational context including prior turns
+    formatted_prompt = memory_service.format_conversation_context(payload.session_id, payload.prompt)
+    
+    # 2. Record user turn in memory
+    memory_service.add_turn(payload.session_id, "user", payload.prompt)
+    
+    # 3. Generate LLM completion
+    provider = get_llm_provider()
+    llm_res = provider.generate(prompt=formatted_prompt)
+    
+    # 4. Record assistant turn in memory
+    memory_service.add_turn(payload.session_id, "assistant", llm_res["content"])
+    
+    return {
+        "success": True,
+        "session_id": payload.session_id,
+        "response": llm_res["content"],
+        "history": memory_service.get_history(payload.session_id)
+    }
