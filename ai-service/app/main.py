@@ -14,6 +14,7 @@ from .services.advanced_retrieval import AdvancedRetrievalEngine
 from .services.tool_registry import ToolRegistry
 from .services.agent_router import QueryRouter
 from .services.memory_service import MemoryService
+from .services.guardrails import GuardrailEngine
 
 app = FastAPI(
     title="LogicAI Service",
@@ -30,6 +31,7 @@ advanced_retrieval = AdvancedRetrievalEngine(vector_store=vector_store, llm_prov
 tool_registry = ToolRegistry()
 query_router = QueryRouter(rag_pipeline=rag_pipeline, tool_registry=tool_registry)
 memory_service = MemoryService()
+guardrail_engine = GuardrailEngine()
 
 class EchoRequest(BaseModel):
     message: str
@@ -99,6 +101,11 @@ class AgentRunRequest(BaseModel):
 class MemoryChatRequest(BaseModel):
     session_id: str = Field(..., description="Unique conversation session ID")
     prompt: str = Field(..., description="User prompt")
+
+class GuardrailCheckRequest(BaseModel):
+    prompt: str = Field(..., description="User prompt to inspect")
+    user_role: Optional[str] = Field(default="employee", description="Role of the requesting user")
+    doc_clearance: Optional[str] = Field(default=None, description="Target document clearance level")
 
 @app.get("/health")
 def health_check():
@@ -327,17 +334,11 @@ def memory_chat_endpoint(payload: MemoryChatRequest):
     if not payload.session_id.strip() or not payload.prompt.strip():
         raise HTTPException(status_code=400, detail="session_id and prompt are required")
     
-    # 1. Format conversational context including prior turns
     formatted_prompt = memory_service.format_conversation_context(payload.session_id, payload.prompt)
-    
-    # 2. Record user turn in memory
     memory_service.add_turn(payload.session_id, "user", payload.prompt)
     
-    # 3. Generate LLM completion
     provider = get_llm_provider()
     llm_res = provider.generate(prompt=formatted_prompt)
-    
-    # 4. Record assistant turn in memory
     memory_service.add_turn(payload.session_id, "assistant", llm_res["content"])
     
     return {
@@ -346,3 +347,19 @@ def memory_chat_endpoint(payload: MemoryChatRequest):
         "response": llm_res["content"],
         "history": memory_service.get_history(payload.session_id)
     }
+
+@app.post("/api/v1/security/guard")
+def guardrail_check_endpoint(payload: GuardrailCheckRequest):
+    if not payload.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+    
+    result = guardrail_engine.run_guardrails(
+        prompt=payload.prompt,
+        user_role=payload.user_role or "employee",
+        doc_clearance=payload.doc_clearance
+    )
+    
+    if not result["is_safe"]:
+        raise HTTPException(status_code=403, detail=result)
+        
+    return {"success": True, "guardrail": result}
