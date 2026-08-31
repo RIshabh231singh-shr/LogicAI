@@ -17,6 +17,7 @@ from .services.agent_router import QueryRouter
 from .services.memory_service import MemoryService
 from .services.guardrails import GuardrailEngine
 from .services.evaluator import RAGEvaluator
+from .services.observability import TelemetryTracer
 
 app = FastAPI(
     title="LogicAI Service",
@@ -35,6 +36,7 @@ query_router = QueryRouter(rag_pipeline=rag_pipeline, tool_registry=tool_registr
 memory_service = MemoryService()
 guardrail_engine = GuardrailEngine()
 rag_evaluator = RAGEvaluator()
+telemetry_tracer = TelemetryTracer()
 
 class EchoRequest(BaseModel):
     message: str
@@ -133,6 +135,9 @@ def process_chat(payload: ChatRequest):
     if not payload.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt text cannot be empty or whitespace")
     
+    trace_id = telemetry_tracer.start_trace("/api/v1/chat", payload.prompt)
+    telemetry_tracer.log_step(trace_id, "INITIATE_CHAT_REQUEST")
+    
     provider = get_llm_provider()
     result = provider.generate(
         prompt=payload.prompt,
@@ -140,6 +145,14 @@ def process_chat(payload: ChatRequest):
         temperature=payload.temperature,
         structured=payload.structured
     )
+    
+    telemetry_tracer.log_step(trace_id, "LLM_GENERATION_COMPLETE")
+    telemetry_tracer.record_llm_usage(
+        trace_id,
+        prompt_tokens=result["usage"]["prompt_tokens"],
+        completion_tokens=result["usage"]["completion_tokens"]
+    )
+    telemetry_tracer.end_trace(trace_id)
     
     return ChatResponse(**result)
 
@@ -254,13 +267,27 @@ def execute_rag_query(payload: RAGQueryRequest):
     if not payload.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     
+    trace_id = telemetry_tracer.start_trace("/api/v1/rag/query", payload.query)
+    telemetry_tracer.log_step(trace_id, "START_RAG_PIPELINE")
+    
     rag_result = rag_pipeline.query(
         query_text=payload.query.strip(),
         top_k=payload.top_k,
         metadata_filter=payload.metadata_filter
     )
     
-    return {"success": True, "data": rag_result}
+    telemetry_tracer.log_step(trace_id, "RETRIEVAL_AND_GENERATION_COMPLETE")
+    if "retrieved_chunks" in rag_result:
+        telemetry_tracer.record_retrieval_trace(trace_id, rag_result["retrieved_chunks"])
+    if "usage" in rag_result:
+        telemetry_tracer.record_llm_usage(
+            trace_id,
+            prompt_tokens=rag_result["usage"].get("prompt_tokens", 0),
+            completion_tokens=rag_result["usage"].get("completion_tokens", 0)
+        )
+    telemetry_tracer.end_trace(trace_id)
+    
+    return {"success": True, "data": rag_result, "trace_id": trace_id}
 
 @app.post("/api/v1/retrieval/rewrite")
 def rewrite_query_endpoint(payload: AdvancedRetrievalRequest):
@@ -415,4 +442,18 @@ def run_evaluation_benchmark(payload: EvalRunRequest):
             "mean_answer_relevance": round(total_relevance / count, 4)
         },
         "item_breakdown": eval_results
+    }
+
+@app.get("/api/v1/telemetry/traces")
+def get_telemetry_traces():
+    history = telemetry_tracer.get_trace_history()
+    total_tokens = sum(t.get("llm_usage", {}).get("total_tokens", 0) for t in history)
+    total_cost = sum(t.get("estimated_cost_usd", 0.0) for t in history)
+    
+    return {
+        "success": True,
+        "trace_count": len(history),
+        "total_tokens_consumed": total_tokens,
+        "total_cost_usd": round(total_cost, 6),
+        "traces": history
     }
