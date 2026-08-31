@@ -9,6 +9,7 @@ from .services.document_processor import DocumentProcessor
 from .services.chunker import TextChunker
 from .services.embedding_service import EmbeddingService
 from .services.vector_store import VectorStore
+from .services.rag_pipeline import RAGPipeline
 
 app = FastAPI(
     title="LogicAI Service",
@@ -20,6 +21,7 @@ document_processor = DocumentProcessor()
 text_chunker = TextChunker()
 embedding_service = EmbeddingService()
 vector_store = VectorStore(embedding_service=embedding_service)
+rag_pipeline = RAGPipeline(vector_store=vector_store, llm_provider=get_llm_provider())
 
 class EchoRequest(BaseModel):
     message: str
@@ -65,6 +67,11 @@ class VectorSearchRequest(BaseModel):
     query: str = Field(..., description="Search query string")
     top_k: int = Field(default=3, ge=1, le=50, description="Number of top chunks to return")
     metadata_filter: Optional[Dict[str, Any]] = Field(default=None, description="Metadata filtering key-values")
+
+class RAGQueryRequest(BaseModel):
+    query: str = Field(..., description="RAG User Query")
+    top_k: int = Field(default=3, ge=1, le=50, description="Top-K context chunks to retrieve")
+    metadata_filter: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata filter")
 
 @app.get("/health")
 def health_check():
@@ -201,3 +208,16 @@ def search_vector_store(payload: VectorSearchRequest):
         "retrieved_count": len(results),
         "retrieved_chunks": results
     }
+
+@app.post("/api/v1/rag/query")
+def execute_rag_query(payload: RAGQueryRequest):
+    if not payload.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    
+    rag_result = rag_pipeline.query(
+        query_text=payload.query.strip(),
+        top_k=payload.top_k,
+        metadata_filter=payload.metadata_filter
+    )
+    
+    return {"success": True, "data": rag_result}

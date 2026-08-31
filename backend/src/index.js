@@ -11,7 +11,8 @@ const {
   generateEmbeddingWithAIService,
   calculateSimilarityWithAIService,
   storeVectorChunksWithAIService,
-  searchVectorStoreWithAIService
+  searchVectorStoreWithAIService,
+  executeRAGQueryWithAIService
 } = require('./services/aiServiceClient');
 
 const app = express();
@@ -251,6 +252,36 @@ app.post('/api/vector/search', async (req, res) => {
     return res.status(502).json({
       success: false,
       error: 'Bad Gateway: Vector search failed',
+      details: error.message
+    });
+  }
+});
+
+// Full RAG Query Endpoint
+app.post('/api/rag/query', async (req, res) => {
+  const { query, top_k, metadata_filter } = req.body;
+
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return res.status(400).json({ error: 'Field "query" is required and cannot be empty' });
+  }
+
+  try {
+    const aiResponse = await executeRAGQueryWithAIService(
+      query.trim(),
+      typeof top_k === 'number' ? top_k : 3,
+      metadata_filter || undefined
+    );
+
+    return res.status(200).json({
+      success: true,
+      gateway: 'node-backend',
+      data: aiResponse.data
+    });
+  } catch (error) {
+    console.error('RAG Query execution error:', error.message);
+    return res.status(502).json({
+      success: false,
+      error: 'Bad Gateway: RAG query execution failed',
       details: error.message
     });
   }
