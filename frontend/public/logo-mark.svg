@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Minimal geometric L with connected reasoning nodes -->
+  <rect width="64" height="64" rx="14" fill="#18181B"/>
+  <!-- Primary L Stem -->
+  <path d="M22 16V46H48" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Analytical Node Network -->
+  <circle cx="22" cy="16" r="4.5" fill="#315CFF" stroke="#FFFFFF" stroke-width="2"/>
+  <circle cx="22" cy="46" r="4.5" fill="#315CFF" stroke="#FFFFFF" stroke-width="2"/>
+  <circle cx="48" cy="46" r="4.5" fill="#315CFF" stroke="#FFFFFF" stroke-width="2"/>
+  <!-- Reasoning Connection Ray -->
+  <path d="M22 31L36 31" stroke="#315CFF" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 3"/>
+  <circle cx="38" cy="31" r="3" fill="#FFFFFF"/>
+</svg>

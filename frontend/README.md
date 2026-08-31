@@ -1,3 +1,3 @@
-# Cognivault Frontend
+# LogicAI Frontend
 
-React web application for Cognivault chat interface, document management, citations, and system status.
+A modern, clean, light-first project intelligence workspace built with React 18, Tailwind CSS, Axios, and Vite.

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
+  <!-- Mark -->
+  <rect x="4" y="4" width="40" height="40" rx="10" fill="#18181B"/>
+  <path d="M17 14V34H33" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="17" cy="14" r="3" fill="#315CFF" stroke="#FFFFFF" stroke-width="1.5"/>
+  <circle cx="17" cy="34" r="3" fill="#315CFF" stroke="#FFFFFF" stroke-width="1.5"/>
+  <circle cx="33" cy="34" r="3" fill="#315CFF" stroke="#FFFFFF" stroke-width="1.5"/>
+  <path d="M17 24L26 24" stroke="#315CFF" stroke-width="2" stroke-linecap="round" stroke-dasharray="1.5 2"/>
+  <circle cx="27.5" cy="24" r="2" fill="#FFFFFF"/>
+  <!-- Typography -->
+  <text x="56" y="31" font-family="Inter, -apple-system, sans-serif" font-size="21" font-weight="700" fill="#18181B" letter-spacing="-0.5">Logic<tspan fill="#315CFF">AI</tspan></text>
+</svg>
