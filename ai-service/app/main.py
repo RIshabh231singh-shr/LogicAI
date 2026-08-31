@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+import json
 import os
 
 from .services.llm_provider import get_llm_provider
@@ -15,6 +16,7 @@ from .services.tool_registry import ToolRegistry
 from .services.agent_router import QueryRouter
 from .services.memory_service import MemoryService
 from .services.guardrails import GuardrailEngine
+from .services.evaluator import RAGEvaluator
 
 app = FastAPI(
     title="LogicAI Service",
@@ -32,6 +34,7 @@ tool_registry = ToolRegistry()
 query_router = QueryRouter(rag_pipeline=rag_pipeline, tool_registry=tool_registry)
 memory_service = MemoryService()
 guardrail_engine = GuardrailEngine()
+rag_evaluator = RAGEvaluator()
 
 class EchoRequest(BaseModel):
     message: str
@@ -106,6 +109,9 @@ class GuardrailCheckRequest(BaseModel):
     prompt: str = Field(..., description="User prompt to inspect")
     user_role: Optional[str] = Field(default="employee", description="Role of the requesting user")
     doc_clearance: Optional[str] = Field(default=None, description="Target document clearance level")
+
+class EvalRunRequest(BaseModel):
+    items: List[Dict[str, Any]] = Field(..., min_items=1, description="Evaluation items list")
 
 @app.get("/health")
 def health_check():
@@ -363,3 +369,50 @@ def guardrail_check_endpoint(payload: GuardrailCheckRequest):
         raise HTTPException(status_code=403, detail=result)
         
     return {"success": True, "guardrail": result}
+
+@app.post("/api/v1/eval/run")
+def run_evaluation_benchmark(payload: EvalRunRequest):
+    eval_results = []
+    total_precision = 0.0
+    total_recall = 0.0
+    total_faithfulness = 0.0
+    total_relevance = 0.0
+
+    for item in payload.items:
+        q = item.get("query", "")
+        exp_ans = item.get("expected_answer", "")
+        exp_src = item.get("expected_source", "")
+        exp_page = item.get("expected_page", 1)
+
+        rag_output = rag_pipeline.query(q)
+        retrieved_chunks = rag_output.get("retrieved_chunks", [])
+        gen_answer = rag_output.get("answer", "")
+
+        eval_item = rag_evaluator.evaluate_item(
+            query=q,
+            retrieved_chunks=retrieved_chunks,
+            generated_answer=gen_answer,
+            expected_answer=exp_ans,
+            expected_source=exp_src,
+            expected_page=exp_page
+        )
+        eval_results.append(eval_item)
+
+        m = eval_item["metrics"]
+        total_precision += m["context_precision"]
+        total_recall += m["context_recall"]
+        total_faithfulness += m["faithfulness"]
+        total_relevance += m["answer_relevance"]
+
+    count = len(payload.items)
+    return {
+        "success": True,
+        "evaluated_count": count,
+        "aggregate_scores": {
+            "mean_context_precision": round(total_precision / count, 4),
+            "mean_context_recall": round(total_recall / count, 4),
+            "mean_faithfulness": round(total_faithfulness / count, 4),
+            "mean_answer_relevance": round(total_relevance / count, 4)
+        },
+        "item_breakdown": eval_results
+    }
