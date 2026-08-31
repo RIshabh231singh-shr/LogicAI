@@ -9,7 +9,9 @@ const {
   uploadDocumentToAIService,
   chunkDocumentWithAIService,
   generateEmbeddingWithAIService,
-  calculateSimilarityWithAIService
+  calculateSimilarityWithAIService,
+  storeVectorChunksWithAIService,
+  searchVectorStoreWithAIService
 } = require('./services/aiServiceClient');
 
 const app = express();
@@ -194,6 +196,61 @@ app.post('/api/embeddings/similarity', async (req, res) => {
     return res.status(502).json({
       success: false,
       error: 'Bad Gateway: Similarity calculation failed',
+      details: error.message
+    });
+  }
+});
+
+// Store Vector Chunks Endpoint
+app.post('/api/vector/store', async (req, res) => {
+  const { chunks } = req.body;
+
+  if (!Array.isArray(chunks) || chunks.length === 0) {
+    return res.status(400).json({ error: 'Field "chunks" must be a non-empty array' });
+  }
+
+  try {
+    const aiResponse = await storeVectorChunksWithAIService(chunks);
+    return res.status(200).json({
+      success: true,
+      gateway: 'node-backend',
+      data: aiResponse
+    });
+  } catch (error) {
+    console.error('Vector store error:', error.message);
+    return res.status(502).json({
+      success: false,
+      error: 'Bad Gateway: Vector store failed',
+      details: error.message
+    });
+  }
+});
+
+// Vector Search Endpoint
+app.post('/api/vector/search', async (req, res) => {
+  const { query, top_k, metadata_filter } = req.body;
+
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return res.status(400).json({ error: 'Field "query" is required and cannot be empty' });
+  }
+
+  try {
+    const aiResponse = await searchVectorStoreWithAIService(
+      query.trim(),
+      typeof top_k === 'number' ? top_k : 3,
+      metadata_filter || undefined
+    );
+
+    return res.status(200).json({
+      success: true,
+      gateway: 'node-backend',
+      data: aiResponse
+    });
+  } catch (error) {
+    console.error('Vector search error:', error.message);
+    return res.status(502).json({
+      success: false,
+      error: 'Bad Gateway: Vector search failed',
       details: error.message
     });
   }

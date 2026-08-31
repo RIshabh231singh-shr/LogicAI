@@ -8,6 +8,7 @@ from .services.llm_provider import get_llm_provider
 from .services.document_processor import DocumentProcessor
 from .services.chunker import TextChunker
 from .services.embedding_service import EmbeddingService
+from .services.vector_store import VectorStore
 
 app = FastAPI(
     title="LogicAI Service",
@@ -18,6 +19,7 @@ app = FastAPI(
 document_processor = DocumentProcessor()
 text_chunker = TextChunker()
 embedding_service = EmbeddingService()
+vector_store = VectorStore(embedding_service=embedding_service)
 
 class EchoRequest(BaseModel):
     message: str
@@ -55,6 +57,14 @@ class EmbeddingGenerateRequest(BaseModel):
 class SimilarityRequest(BaseModel):
     query: str = Field(..., description="Query string")
     candidates: List[str] = Field(..., min_items=1, description="Candidate strings to compare against query")
+
+class VectorStoreRequest(BaseModel):
+    chunks: List[Dict[str, Any]] = Field(..., min_items=1, description="List of chunk objects to store")
+
+class VectorSearchRequest(BaseModel):
+    query: str = Field(..., description="Search query string")
+    top_k: int = Field(default=3, ge=1, le=50, description="Number of top chunks to return")
+    metadata_filter: Optional[Dict[str, Any]] = Field(default=None, description="Metadata filtering key-values")
 
 @app.get("/health")
 def health_check():
@@ -163,4 +173,31 @@ def calculate_similarity(payload: SimilarityRequest):
         "query": payload.query,
         "candidate_count": len(payload.candidates),
         "rankings": rankings
+    }
+
+@app.post("/api/v1/vector/store")
+def store_vector_chunks(payload: VectorStoreRequest):
+    stored_count = vector_store.store_batch_chunks(payload.chunks)
+    return {
+        "success": True,
+        "stored_count": stored_count
+    }
+
+@app.post("/api/v1/vector/search")
+def search_vector_store(payload: VectorSearchRequest):
+    if not payload.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    
+    results = vector_store.search_similarity(
+        query=payload.query,
+        top_k=payload.top_k,
+        metadata_filter=payload.metadata_filter
+    )
+    
+    return {
+        "success": True,
+        "query": payload.query,
+        "top_k": payload.top_k,
+        "retrieved_count": len(results),
+        "retrieved_chunks": results
     }

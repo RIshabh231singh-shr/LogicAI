@@ -216,6 +216,78 @@ async function calculateSimilarityWithAIService(query, candidates) {
   }
 }
 
+/**
+ * Stores document chunks into Python vector store.
+ * @param {Array<object>} chunks 
+ * @returns {Promise<object>}
+ */
+async function storeVectorChunksWithAIService(chunks) {
+  const endpoint = `${AI_SERVICE_URL}/api/v1/vector/store`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chunks }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`AI Service Error (${response.status}): ${errorData.detail || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('AI Service vector store timed out after 10000ms');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Performs vector similarity search against stored chunks in Python AI service.
+ * @param {string} query 
+ * @param {number} top_k 
+ * @param {object} metadata_filter 
+ * @returns {Promise<object>}
+ */
+async function searchVectorStoreWithAIService(query, top_k = 3, metadata_filter = null) {
+  const endpoint = `${AI_SERVICE_URL}/api/v1/vector/search`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, top_k, metadata_filter }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`AI Service Error (${response.status}): ${errorData.detail || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('AI Service vector search timed out after 10000ms');
+    }
+    throw error;
+  }
+}
+
 module.exports = {
   sendEchoToAIService,
   sendChatToAIService,
@@ -223,4 +295,6 @@ module.exports = {
   chunkDocumentWithAIService,
   generateEmbeddingWithAIService,
   calculateSimilarityWithAIService,
+  storeVectorChunksWithAIService,
+  searchVectorStoreWithAIService,
 };
