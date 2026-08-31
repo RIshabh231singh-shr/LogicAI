@@ -1,0 +1,23 @@
+[
+  {
+    "eval_id": "eval_001",
+    "query": "What is the employee annual leave policy?",
+    "expected_answer": "Regular full-time employees accrue 20 annual leave days per year.",
+    "expected_source": "Employee_Handbook.pdf",
+    "expected_page": 24
+  },
+  {
+    "eval_id": "eval_002",
+    "query": "What are the password security requirements?",
+    "expected_answer": "Passwords must be updated every 90 days and require a minimum of 16 characters.",
+    "expected_source": "Employee_Handbook.pdf",
+    "expected_page": 45
+  },
+  {
+    "eval_id": "eval_003",
+    "query": "What is the remote work policy?",
+    "expected_answer": "Employees may work remotely up to 2 days per week with manager approval.",
+    "expected_source": "Company_Policies.pdf",
+    "expected_page": 12
+  }
+]
