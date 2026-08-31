@@ -11,6 +11,7 @@ from .services.embedding_service import EmbeddingService
 from .services.vector_store import VectorStore
 from .services.rag_pipeline import RAGPipeline
 from .services.advanced_retrieval import AdvancedRetrievalEngine
+from .services.tool_registry import ToolRegistry
 
 app = FastAPI(
     title="LogicAI Service",
@@ -24,6 +25,7 @@ embedding_service = EmbeddingService()
 vector_store = VectorStore(embedding_service=embedding_service)
 rag_pipeline = RAGPipeline(vector_store=vector_store, llm_provider=get_llm_provider())
 advanced_retrieval = AdvancedRetrievalEngine(vector_store=vector_store, llm_provider=get_llm_provider())
+tool_registry = ToolRegistry()
 
 class EchoRequest(BaseModel):
     message: str
@@ -79,6 +81,13 @@ class AdvancedRetrievalRequest(BaseModel):
     query: str = Field(..., description="Query text")
     top_k: int = Field(default=3, ge=1, le=50, description="Top-K count")
     metadata_filter: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata filter")
+
+class ToolExecuteRequest(BaseModel):
+    tool_name: str = Field(..., description="Target tool name to execute")
+    tool_args: Dict[str, Any] = Field(default={}, description="Tool arguments dict")
+
+class ToolProcessRequest(BaseModel):
+    prompt: str = Field(..., description="User prompt text requiring potential tool execution")
 
 @app.get("/health")
 def health_check():
@@ -253,3 +262,40 @@ def rerank_endpoint(payload: AdvancedRetrievalRequest):
     base_chunks = vector_store.search_similarity(query=payload.query, top_k=payload.top_k * 2, metadata_filter=payload.metadata_filter)
     reranked = advanced_retrieval.rerank_chunks(query=payload.query, candidates=base_chunks, top_k=payload.top_k)
     return {"success": True, "query": payload.query, "reranked_chunks": reranked}
+
+@app.get("/api/v1/tools/list")
+def list_tools():
+    return {"success": True, "tools": tool_registry.get_tool_schemas()}
+
+@app.post("/api/v1/tools/execute")
+def execute_tool_endpoint(payload: ToolExecuteRequest):
+    res = tool_registry.execute_tool(payload.tool_name, payload.tool_args)
+    return {"success": True, "tool_name": payload.tool_name, "result": res}
+
+@app.post("/api/v1/tools/process")
+def process_tool_calling(payload: ToolProcessRequest):
+    requires_tool, tool_name, tool_args = tool_registry.select_tool(payload.prompt)
+    
+    if not requires_tool:
+        return {
+            "success": True,
+            "requires_tool": False,
+            "message": "No tool call required. Proceeding with conversational LLM response."
+        }
+    
+    # Inspect tool call BEFORE execution
+    tool_call_inspection = {
+        "tool_name": tool_name,
+        "tool_args": tool_args,
+        "status": "INTERCEPTED_PRE_EXECUTION"
+    }
+
+    # Execute tool
+    execution_result = tool_registry.execute_tool(tool_name, tool_args)
+
+    return {
+        "success": True,
+        "requires_tool": True,
+        "tool_call": tool_call_inspection, # Show tool call BEFORE execution
+        "execution_result": execution_result
+    }
