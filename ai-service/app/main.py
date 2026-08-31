@@ -10,6 +10,7 @@ from .services.chunker import TextChunker
 from .services.embedding_service import EmbeddingService
 from .services.vector_store import VectorStore
 from .services.rag_pipeline import RAGPipeline
+from .services.advanced_retrieval import AdvancedRetrievalEngine
 
 app = FastAPI(
     title="LogicAI Service",
@@ -22,6 +23,7 @@ text_chunker = TextChunker()
 embedding_service = EmbeddingService()
 vector_store = VectorStore(embedding_service=embedding_service)
 rag_pipeline = RAGPipeline(vector_store=vector_store, llm_provider=get_llm_provider())
+advanced_retrieval = AdvancedRetrievalEngine(vector_store=vector_store, llm_provider=get_llm_provider())
 
 class EchoRequest(BaseModel):
     message: str
@@ -71,6 +73,11 @@ class VectorSearchRequest(BaseModel):
 class RAGQueryRequest(BaseModel):
     query: str = Field(..., description="RAG User Query")
     top_k: int = Field(default=3, ge=1, le=50, description="Top-K context chunks to retrieve")
+    metadata_filter: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata filter")
+
+class AdvancedRetrievalRequest(BaseModel):
+    query: str = Field(..., description="Query text")
+    top_k: int = Field(default=3, ge=1, le=50, description="Top-K count")
     metadata_filter: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata filter")
 
 @app.get("/health")
@@ -221,3 +228,28 @@ def execute_rag_query(payload: RAGQueryRequest):
     )
     
     return {"success": True, "data": rag_result}
+
+@app.post("/api/v1/retrieval/rewrite")
+def rewrite_query_endpoint(payload: AdvancedRetrievalRequest):
+    rewritten = advanced_retrieval.rewrite_query(payload.query)
+    return {"success": True, "original_query": payload.query, "rewritten_query": rewritten}
+
+@app.post("/api/v1/retrieval/multi-query")
+def multi_query_endpoint(payload: AdvancedRetrievalRequest):
+    multi_queries = advanced_retrieval.generate_multi_queries(payload.query)
+    return {"success": True, "original_query": payload.query, "multi_queries": multi_queries}
+
+@app.post("/api/v1/retrieval/hybrid")
+def hybrid_search_endpoint(payload: AdvancedRetrievalRequest):
+    chunks = advanced_retrieval.hybrid_search(
+        query=payload.query,
+        top_k=payload.top_k,
+        metadata_filter=payload.metadata_filter
+    )
+    return {"success": True, "query": payload.query, "chunks": chunks}
+
+@app.post("/api/v1/retrieval/rerank")
+def rerank_endpoint(payload: AdvancedRetrievalRequest):
+    base_chunks = vector_store.search_similarity(query=payload.query, top_k=payload.top_k * 2, metadata_filter=payload.metadata_filter)
+    reranked = advanced_retrieval.rerank_chunks(query=payload.query, candidates=base_chunks, top_k=payload.top_k)
+    return {"success": True, "query": payload.query, "reranked_chunks": reranked}
