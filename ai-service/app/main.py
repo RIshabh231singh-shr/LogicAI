@@ -12,6 +12,7 @@ from .services.vector_store import VectorStore
 from .services.rag_pipeline import RAGPipeline
 from .services.advanced_retrieval import AdvancedRetrievalEngine
 from .services.tool_registry import ToolRegistry
+from .services.agent_router import QueryRouter
 
 app = FastAPI(
     title="LogicAI Service",
@@ -26,6 +27,7 @@ vector_store = VectorStore(embedding_service=embedding_service)
 rag_pipeline = RAGPipeline(vector_store=vector_store, llm_provider=get_llm_provider())
 advanced_retrieval = AdvancedRetrievalEngine(vector_store=vector_store, llm_provider=get_llm_provider())
 tool_registry = ToolRegistry()
+query_router = QueryRouter(rag_pipeline=rag_pipeline, tool_registry=tool_registry)
 
 class EchoRequest(BaseModel):
     message: str
@@ -88,6 +90,9 @@ class ToolExecuteRequest(BaseModel):
 
 class ToolProcessRequest(BaseModel):
     prompt: str = Field(..., description="User prompt text requiring potential tool execution")
+
+class AgentRunRequest(BaseModel):
+    query: str = Field(..., description="Query for agent processing")
 
 @app.get("/health")
 def health_check():
@@ -283,19 +288,30 @@ def process_tool_calling(payload: ToolProcessRequest):
             "message": "No tool call required. Proceeding with conversational LLM response."
         }
     
-    # Inspect tool call BEFORE execution
     tool_call_inspection = {
         "tool_name": tool_name,
         "tool_args": tool_args,
         "status": "INTERCEPTED_PRE_EXECUTION"
     }
 
-    # Execute tool
     execution_result = tool_registry.execute_tool(tool_name, tool_args)
 
     return {
         "success": True,
         "requires_tool": True,
-        "tool_call": tool_call_inspection, # Show tool call BEFORE execution
+        "tool_call": tool_call_inspection,
         "execution_result": execution_result
     }
+
+@app.post("/api/v1/agent/route")
+def route_query_endpoint(payload: AgentRunRequest):
+    classification = query_router.classify_intent(payload.query)
+    return {"success": True, "classification": classification}
+
+@app.post("/api/v1/agent/run")
+def run_agent_endpoint(payload: AgentRunRequest):
+    if not payload.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    
+    agent_output = query_router.run_agent(payload.query)
+    return {"success": True, "data": agent_output}
