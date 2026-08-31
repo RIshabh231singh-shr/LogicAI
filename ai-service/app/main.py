@@ -18,6 +18,7 @@ from .services.memory_service import MemoryService
 from .services.guardrails import GuardrailEngine
 from .services.evaluator import RAGEvaluator
 from .services.observability import TelemetryTracer
+from .services.cache_service import SemanticCache
 
 app = FastAPI(
     title="LogicAI Service",
@@ -37,6 +38,7 @@ memory_service = MemoryService()
 guardrail_engine = GuardrailEngine()
 rag_evaluator = RAGEvaluator()
 telemetry_tracer = TelemetryTracer()
+semantic_cache = SemanticCache(embedding_service=embedding_service)
 
 class EchoRequest(BaseModel):
     message: str
@@ -456,4 +458,38 @@ def get_telemetry_traces():
         "total_tokens_consumed": total_tokens,
         "total_cost_usd": round(total_cost, 6),
         "traces": history
+    }
+
+@app.post("/api/v1/cache/chat")
+def cached_chat_endpoint(payload: ChatRequest):
+    if not payload.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt text cannot be empty or whitespace")
+    
+    # 1. Search Semantic Cache
+    cached_data, sim_score = semantic_cache.get(payload.prompt)
+    if cached_data:
+        return {
+            "success": True,
+            "cached": True,
+            "similarity_score": sim_score,
+            "data": cached_data
+        }
+        
+    # 2. Cache Miss -> Execute LLM Generation
+    provider = get_llm_provider()
+    result = provider.generate(
+        prompt=payload.prompt,
+        system_prompt=payload.system_prompt,
+        temperature=payload.temperature,
+        structured=payload.structured
+    )
+    
+    # 3. Store in Semantic Cache
+    semantic_cache.set(payload.prompt, result)
+    
+    return {
+        "success": True,
+        "cached": False,
+        "similarity_score": None,
+        "data": result
     }
