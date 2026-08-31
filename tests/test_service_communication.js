@@ -1,13 +1,15 @@
 const app = require('../backend/src/index.js');
 const http = require('http');
 const { spawn } = require('child_process');
+const path = require('path');
 
 async function runCommunicationTest() {
   console.log('[TEST] Starting Python AI Service background process for integration test...');
   
-  // Launch Python FastAPI server on port 8000
-  const pyProcess = spawn('python', ['-m', 'uvicorn', 'ai-service.app.main:app', '--port', '8000'], {
-    cwd: __dirname + '/..',
+  const aiServiceDir = path.resolve(__dirname, '../ai-service');
+  const pyProcess = spawn('python', ['-m', 'uvicorn', 'app.main:app', '--port', '8000'], {
+    cwd: aiServiceDir,
+    env: { ...process.env, PYTHONPATH: aiServiceDir },
     stdio: 'inherit'
   });
 
