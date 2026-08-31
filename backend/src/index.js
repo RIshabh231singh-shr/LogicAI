@@ -1,11 +1,22 @@
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
 require('dotenv').config();
 
-const { sendEchoToAIService, sendChatToAIService } = require('./services/aiServiceClient');
+const { 
+  sendEchoToAIService, 
+  sendChatToAIService, 
+  uploadDocumentToAIService 
+} = require('./services/aiServiceClient');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Configure in-memory storage for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 app.use(cors());
 app.use(express.json());
@@ -66,6 +77,34 @@ app.post('/api/chat', async (req, res) => {
     return res.status(502).json({
       success: false,
       error: 'Bad Gateway: LLM chat processing failed',
+      details: error.message
+    });
+  }
+});
+
+// Document Upload Endpoint
+app.post('/api/documents/upload', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded. Expected multipart field "file"' });
+  }
+
+  try {
+    const aiResponse = await uploadDocumentToAIService(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
+
+    return res.status(200).json({
+      success: true,
+      gateway: 'node-backend',
+      data: aiResponse.data
+    });
+  } catch (error) {
+    console.error('Document upload processing error:', error.message);
+    return res.status(502).json({
+      success: false,
+      error: 'Bad Gateway: Document ingestion failed',
       details: error.message
     });
   }

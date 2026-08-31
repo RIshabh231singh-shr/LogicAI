@@ -8,7 +8,7 @@ const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 async function sendEchoToAIService(message) {
   const endpoint = `${AI_SERVICE_URL}/api/v1/echo`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sec timeout
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
 
   try {
     const response = await fetch(endpoint, {
@@ -43,7 +43,7 @@ async function sendEchoToAIService(message) {
 async function sendChatToAIService(chatPayload) {
   const endpoint = `${AI_SERVICE_URL}/api/v1/chat`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 sec timeout for LLM
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
     const response = await fetch(endpoint, {
@@ -70,7 +70,48 @@ async function sendChatToAIService(chatPayload) {
   }
 }
 
+/**
+ * Uploads a document buffer to the Python AI service.
+ * @param {Buffer} fileBuffer 
+ * @param {string} filename 
+ * @param {string} mimeType 
+ * @returns {Promise<object>}
+ */
+async function uploadDocumentToAIService(fileBuffer, filename, mimeType) {
+  const endpoint = `${AI_SERVICE_URL}/api/v1/documents/ingest`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const formData = new FormData();
+    const blob = new Blob([fileBuffer], { type: mimeType || 'application/octet-stream' });
+    formData.append('file', blob, filename);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`AI Service Error (${response.status}): ${errorData.detail || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('AI Service document upload timed out after 15000ms');
+    }
+    throw error;
+  }
+}
+
 module.exports = {
   sendEchoToAIService,
   sendChatToAIService,
+  uploadDocumentToAIService,
 };
