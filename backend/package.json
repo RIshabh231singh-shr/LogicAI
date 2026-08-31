@@ -1,7 +1,7 @@
 {
-  "name": "cognivault-backend",
+  "name": "logicai-backend",
   "version": "1.0.0",
-  "description": "Cognivault Node.js Express API Gateway",
+  "description": "LogicAI Node.js Express API Gateway",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
