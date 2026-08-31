@@ -1,21 +1,23 @@
-# Cognivault — Enterprise GenAI Knowledge & Operations Platform
+# LogicAI — Enterprise Project Intelligence & Operations Platform
 
-> **Portfolio Repository:** [https://github.com/RIshabh231singh-shr/LogicAI](https://github.com/RIshabh231singh-shr/LogicAI)
+> **Repository:** [https://github.com/RIshabh231singh-shr/LogicAI](https://github.com/RIshabh231singh-shr/LogicAI)
 
-Cognivault is a production-grade, enterprise-oriented GenAI platform engineered from first principles to demonstrate end-to-end GenAI architecture, vector search math, agentic intent routing, multi-turn memory, security guardrails, automated evaluation, and telemetry observability.
+LogicAI is an AI-powered project and document intelligence platform that analyzes multiple project documents, extracts evidence-backed insights, supports comparison, and provides retrieval, evaluation, and observability capabilities.
+
+Engineered from first principles, LogicAI combines end-to-end GenAI architecture, vector search math, agentic intent routing, multi-turn memory, security guardrails, automated evaluation, and telemetry observability into a clean, light-first enterprise workspace.
 
 ---
 
 ## 🏗️ System Architecture
 
-Cognivault adopts a microservices architecture connecting a **Node.js Express API Gateway** with a high-performance **Python FastAPI GenAI Engine**, **PostgreSQL with `pgvector`**, and **Redis Semantic Cache**.
+LogicAI adopts a decoupled microservices architecture connecting a **Node.js Express API Gateway** with a high-performance **Python FastAPI GenAI Engine**, **PostgreSQL with `pgvector`**, and **Redis Semantic Cache**.
 
 ```
                            ┌───────────────────────────┐
-                           │      React Dashboard      │
-                           │        (Frontend)         │
+                           │      LogicAI Workspace    │
+                           │     (React + Tailwind)    │
                            └─────────────┬─────────────┘
-                                         │ HTTP REST / SSE
+                                         │ HTTP REST (Axios)
                                          ▼
                            ┌───────────────────────────┐
                            │   Node.js API Gateway     │
@@ -33,6 +35,7 @@ Cognivault adopts a microservices architecture connecting a **Node.js Express AP
 ┌─────────────────────┐                                   ┌─────────────────────┐
 │   PostgreSQL +      │                                   │    Redis Semantic   │
 │   pgvector (HNSW)   │                                   │    Response Cache   │
+│   (Vector Store)    │                                   │    (<2ms hits)      │
 └─────────────────────┘                                   └─────────────────────┘
 ```
 
@@ -40,64 +43,71 @@ Cognivault adopts a microservices architecture connecting a **Node.js Express AP
 
 ## 🌟 Key Technical Features & Capabilities
 
-### 1. **LLM Abstraction & Provider Lifecycle**
-- Custom `BaseLLMProvider` abstraction supporting pluggable providers (`MockLLMProvider`, `OpenAI`, `Gemini`).
-- Native support for **Structured JSON Outputs**, token heuristic calculation, and latency tracking.
+### 1. **Project & Document Workspaces**
+- Multi-project workspace management grouping specifications, RFCs, and policy documents.
+- Drag-and-drop document upload with real-time Axios progress tracking.
+- Interactive **3-column Document Viewer** connecting source pages directly to verified evidence findings.
 
-### 2. **Document Processing & Custom Chunking**
+### 2. **LLM Abstraction & Provider Lifecycle**
+- Custom `BaseLLMProvider` abstraction supporting pluggable providers (`MockLLMProvider`, `OpenAI`, `Gemini Pro`).
+- Native support for **Structured JSON Outputs**, token calculation, and latency tracking.
+
+### 3. **Document Processing & Custom Chunking**
 - Ingestion engine parsing PDF and plain text documents with page numbering and metadata.
 - **Fixed-size Sliding Window Chunking** with configurable character overlap.
 - **Sentence-boundary Chunking** preserving semantic sentence integrity.
 
-### 3. **384-D Vector Embeddings & Vector Search**
+### 4. **384-D Vector Embeddings & Vector Search**
 - 384-dimensional normalized vector embedding service.
 - **Cosine Similarity Math** calculated from first principles:
   $$\text{Cosine Similarity}(\vec{A}, \vec{B}) = \frac{\vec{A} \cdot \vec{B}}{\|\vec{A}\| \|\vec{B}\|}$$
 - **pgvector Relational Schema** with in-memory fallback and Top-$K$ retrieval.
 
-### 4. **Baseline RAG & Citations**
+### 5. **Hybrid RAG & Grounded Citations**
 - Grounded System Prompting (*"Answer strictly based on retrieved context"*).
 - Automatic citation extraction attaching document ID, page number, chunk ID, and exact snippet.
+- Formatted citations (`architecture.pdf · p.12`) with clickable evidence inspection.
 
-### 5. **Advanced Retrieval Engine**
+### 6. **Advanced Retrieval Engine**
 - **Query Rewriting & Multi-Query Expansion** generating diverse retrieval variations.
 - **Hybrid Sparse-Dense Search (BM25 + Vector)** using **Reciprocal Rank Fusion (RRF)**:
   $$\text{RRF\_Score}(d) = \sum_{m \in \text{methods}} \frac{1}{60 + \text{rank}_m(d)}$$
 - **Cross-Encoder Reranking** re-scoring top candidates for precision alignment.
 
-### 6. **Enterprise Tool Calling & Schema Selection**
+### 7. **Enterprise Tool Calling & Schema Selection**
 - Tool Registry with JSON Schema definitions (`get_employee_details`, `get_leave_balance`, `search_company_policy`).
 - **Pre-execution tool inspection endpoint** (`POST /api/v1/tools/process`) intercepting tool calls for human-in-the-loop auditability before execution.
 
-### 7. **Agent Intent Router & State Machine**
+### 8. **Agent Intent Router & State Machine**
 - 4-way Intent Classification Routing:
   - `ROUTE_KNOWLEDGE`: RAG vector search.
-  - `ROUTE_DATABASE`: Employee relational lookup.
-  - `ROUTE_TOOL`: Operational policy search.
+  - `ROUTE_DATABASE`: Relational record lookup.
+  - `ROUTE_TOOL`: Operational tool execution.
   - `ROUTE_UNSUPPORTED`: Safety rejection for injection/security threats.
 
-### 8. **Conversational Memory & Context Resolution**
+### 9. **Conversational Memory & Context Resolution**
 - Short-term session persistence resolving ambiguous pronouns (*"that"*, *"it"*) across multi-turn user dialogs.
 
-### 9. **Security Guardrails & RBAC Authorization**
+### 10. **Security Guardrails & RBAC Authorization**
 - **Prompt Injection & Jailbreak Scanner** rejecting malicious override attempts.
 - **Role-Based Access Control (RBAC)** restricting document clearance levels (`guest`, `employee`, `hr_admin`, `admin`).
-- **Output PII Redaction** sanitizing SSNs and Credit Card numbers.
+- **Output PII Redaction** sanitizing SSNs and credentials.
 
-### 10. **Automated RAG Evaluation Benchmark**
-- Evaluates Context Precision, Context Recall, Faithfulness, and Answer Relevance against standard datasets.
+### 11. **Automated RAG Evaluation Benchmark**
+- Quantitative benchmarking calculating **Context Precision**, **Context Recall**, **Faithfulness**, and **Answer Relevance** against standard datasets.
 
-### 11. **GenAI Telemetry & Observability**
+### 12. **GenAI Telemetry & Observability**
 - Request trace IDs, step latency breakdowns, token consumption, and estimated USD cost tracking.
+- Interactive trace inspection dialog for granular auditability.
 
-### 12. **Semantic Caching & Production Resilience**
+### 13. **Semantic Caching & Production Resilience**
 - Vector-based semantic response caching returning cached responses in **< 2ms** for queries with similarity $\ge 0.95$.
 
 ---
 
 ## 🧪 Master Test Suite
 
-Cognivault includes **17 automated integration test suites** covering every component across Node.js and Python.
+LogicAI includes **17 automated integration test suites** covering every component across Node.js and Python.
 
 To run the complete master test suite:
 
@@ -136,6 +146,18 @@ docker-compose up --build -d
 
 ---
 
+## 💻 Running the Frontend Locally
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The light-first workspace will be accessible at `http://localhost:3000` (or `3001` if port 3000 is occupied).
+
+---
+
 ## 📂 Project Structure
 
 ```
@@ -151,11 +173,17 @@ docker-compose up --build -d
 │   │   ├── index.js           # Express entry point
 │   │   └── services/          # Inter-service REST client
 │   └── Dockerfile
-├── frontend/                  # React Dashboard UI
+├── frontend/                  # React + Tailwind Project Intelligence Workspace
 │   ├── src/
-│   │   ├── App.jsx            # Main operations dashboard component
-│   │   └── index.css          # Glassmorphism dark design system
-│   └── vite.config.js
+│   │   ├── api/               # Centralized Axios API service layer
+│   │   ├── components/        # Reusable UI & Layout components
+│   │   ├── context/           # Workspace state & keyboard shortcuts
+│   │   ├── pages/             # Workspaces (Overview, Projects, Documents, Analysis, etc.)
+│   │   ├── App.jsx            # Lightweight 56-line root router
+│   │   └── index.css          # Tailwind CSS design system
+│   ├── public/                # Original LogicAI SVG logos and favicon
+│   ├── tailwind.config.js     # Light-first workspace design tokens
+│   └── vite.config.js         # Vite configuration with API proxies
 ├── docs/                      # Architectural & Educational Documentation
 ├── tests/                     # 17 Automated Integration Test Suites
 │   └── run_all_tests.js       # Master test runner
