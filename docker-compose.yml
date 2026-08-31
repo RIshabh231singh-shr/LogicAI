@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: cognivault-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: cognivault
+      POSTGRES_USER: cognivault_user
+      POSTGRES_PASSWORD: cognivault_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cognivault_user -d cognivault"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: cognivault-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: cognivault-ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DATABASE_URL=postgresql://cognivault_user:cognivault_password@postgres:5432/cognivault
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cognivault-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - AI_SERVICE_URL=http://ai-service:8000
+    depends_on:
+      - ai-service
+
+volumes:
+  postgres_data:
+  redis_data:
