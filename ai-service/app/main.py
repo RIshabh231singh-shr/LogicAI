@@ -1,16 +1,19 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 import os
 
 from .services.llm_provider import get_llm_provider
+from .services.document_processor import DocumentProcessor
 
 app = FastAPI(
     title="LogicAI Service",
     description="Python FastAPI service handling LLM, Embeddings, RAG, and Agent orchestration.",
     version="1.0.0"
 )
+
+document_processor = DocumentProcessor()
 
 class EchoRequest(BaseModel):
     message: str
@@ -63,3 +66,22 @@ def process_chat(payload: ChatRequest):
     )
     
     return ChatResponse(**result)
+
+@app.post("/api/v1/documents/ingest")
+async def ingest_document(file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename cannot be empty")
+    
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    
+    try:
+        doc_result = document_processor.process_file(
+            filename=file.filename,
+            content_bytes=content,
+            mime_type=file.content_type or "application/octet-stream"
+        )
+        return {"success": True, "data": doc_result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process document: {str(e)}")
