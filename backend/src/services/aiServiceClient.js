@@ -110,8 +110,44 @@ async function uploadDocumentToAIService(fileBuffer, filename, mimeType) {
   }
 }
 
+/**
+ * Requests chunking of text from the Python AI service.
+ * @param {object} chunkPayload { text, strategy, chunk_size, chunk_overlap, document_id, metadata }
+ * @returns {Promise<object>}
+ */
+async function chunkDocumentWithAIService(chunkPayload) {
+  const endpoint = `${AI_SERVICE_URL}/api/v1/documents/chunk`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(chunkPayload),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`AI Service Error (${response.status}): ${errorData.detail || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('AI Service document chunking timed out after 10000ms');
+    }
+    throw error;
+  }
+}
+
 module.exports = {
   sendEchoToAIService,
   sendChatToAIService,
   uploadDocumentToAIService,
+  chunkDocumentWithAIService,
 };

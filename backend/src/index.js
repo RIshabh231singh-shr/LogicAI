@@ -6,7 +6,8 @@ require('dotenv').config();
 const { 
   sendEchoToAIService, 
   sendChatToAIService, 
-  uploadDocumentToAIService 
+  uploadDocumentToAIService,
+  chunkDocumentWithAIService
 } = require('./services/aiServiceClient');
 
 const app = express();
@@ -105,6 +106,39 @@ app.post('/api/documents/upload', upload.single('file'), async (req, res) => {
     return res.status(502).json({
       success: false,
       error: 'Bad Gateway: Document ingestion failed',
+      details: error.message
+    });
+  }
+});
+
+// Document Chunking Endpoint
+app.post('/api/documents/chunk', async (req, res) => {
+  const { text, strategy, chunk_size, chunk_overlap, document_id, metadata } = req.body;
+
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ error: 'Field "text" is required and cannot be empty' });
+  }
+
+  try {
+    const aiResponse = await chunkDocumentWithAIService({
+      text: text.trim(),
+      strategy: strategy || 'fixed',
+      chunk_size: typeof chunk_size === 'number' ? chunk_size : 500,
+      chunk_overlap: typeof chunk_overlap === 'number' ? chunk_overlap : 100,
+      document_id: document_id || undefined,
+      metadata: metadata || undefined
+    });
+
+    return res.status(200).json({
+      success: true,
+      gateway: 'node-backend',
+      data: aiResponse
+    });
+  } catch (error) {
+    console.error('Document chunking processing error:', error.message);
+    return res.status(502).json({
+      success: false,
+      error: 'Bad Gateway: Document chunking failed',
       details: error.message
     });
   }

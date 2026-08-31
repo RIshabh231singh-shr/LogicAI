@@ -6,6 +6,7 @@ import os
 
 from .services.llm_provider import get_llm_provider
 from .services.document_processor import DocumentProcessor
+from .services.chunker import TextChunker
 
 app = FastAPI(
     title="LogicAI Service",
@@ -14,6 +15,7 @@ app = FastAPI(
 )
 
 document_processor = DocumentProcessor()
+text_chunker = TextChunker()
 
 class EchoRequest(BaseModel):
     message: str
@@ -36,6 +38,14 @@ class ChatResponse(BaseModel):
     usage: Dict[str, int]
     latency_ms: float
     parameters: Dict[str, Any]
+
+class ChunkRequest(BaseModel):
+    text: str = Field(..., description="Text to chunk")
+    strategy: str = Field(default="fixed", description="Chunking strategy: 'fixed' or 'sentence'")
+    chunk_size: int = Field(default=500, ge=50, le=10000, description="Target chunk character size")
+    chunk_overlap: int = Field(default=100, ge=0, description="Sliding window overlap size")
+    document_id: Optional[str] = Field(default="", description="Optional associated document ID")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata to attach to chunks")
 
 @app.get("/health")
 def health_check():
@@ -85,3 +95,38 @@ async def ingest_document(file: UploadFile = File(...)):
         return {"success": True, "data": doc_result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process document: {str(e)}")
+
+@app.post("/api/v1/documents/chunk")
+def chunk_document(payload: ChunkRequest):
+    if not payload.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    
+    try:
+        if payload.strategy == "sentence":
+            chunks = text_chunker.sentence_chunking(
+                text=payload.text,
+                max_chunk_size=payload.chunk_size,
+                document_id=payload.document_id or "",
+                metadata=payload.metadata
+            )
+        else:
+            chunks = text_chunker.fixed_size_chunking(
+                text=payload.text,
+                chunk_size=payload.chunk_size,
+                chunk_overlap=payload.chunk_overlap,
+                document_id=payload.document_id or "",
+                metadata=payload.metadata
+            )
+            
+        return {
+            "success": True,
+            "strategy": payload.strategy,
+            "chunk_count": len(chunks),
+            "chunk_size": payload.chunk_size,
+            "chunk_overlap": payload.chunk_overlap,
+            "chunks": chunks
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chunking failed: {str(e)}")
