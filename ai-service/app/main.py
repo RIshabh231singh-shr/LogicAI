@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any
 from datetime import datetime
 import os
+
+from .services.llm_provider import get_llm_provider
 
 app = FastAPI(
     title="LogicAI Service",
@@ -17,6 +20,20 @@ class EchoResponse(BaseModel):
     reply: str
     timestamp: str
 
+class ChatRequest(BaseModel):
+    prompt: str = Field(..., description="User prompt text")
+    system_prompt: Optional[str] = Field(default=None, description="System instructions establishing LLM behavior")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
+    structured: bool = Field(default=False, description="Whether structured JSON output is requested")
+
+class ChatResponse(BaseModel):
+    provider: str
+    content: str
+    structured: bool
+    usage: Dict[str, int]
+    latency_ms: float
+    parameters: Dict[str, Any]
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -31,3 +48,18 @@ def process_echo(payload: EchoRequest):
         reply=f"AI Service received: {payload.message}",
         timestamp=datetime.utcnow().isoformat() + "Z"
     )
+
+@app.post("/api/v1/chat", response_model=ChatResponse)
+def process_chat(payload: ChatRequest):
+    if not payload.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt text cannot be empty or whitespace")
+    
+    provider = get_llm_provider()
+    result = provider.generate(
+        prompt=payload.prompt,
+        system_prompt=payload.system_prompt,
+        temperature=payload.temperature,
+        structured=payload.structured
+    )
+    
+    return ChatResponse(**result)

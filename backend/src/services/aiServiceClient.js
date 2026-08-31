@@ -13,9 +13,7 @@ async function sendEchoToAIService(message) {
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message }),
       signal: controller.signal,
     });
@@ -37,6 +35,42 @@ async function sendEchoToAIService(message) {
   }
 }
 
+/**
+ * Sends a chat request to the Python AI service.
+ * @param {object} chatPayload { prompt, system_prompt, temperature, structured }
+ * @returns {Promise<object>}
+ */
+async function sendChatToAIService(chatPayload) {
+  const endpoint = `${AI_SERVICE_URL}/api/v1/chat`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 sec timeout for LLM
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(chatPayload),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`AI Service Error (${response.status}): ${errorData.detail || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('AI Service LLM request timed out after 10000ms');
+    }
+    throw error;
+  }
+}
+
 module.exports = {
   sendEchoToAIService,
+  sendChatToAIService,
 };
