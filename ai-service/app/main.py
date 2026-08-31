@@ -7,6 +7,7 @@ import os
 from .services.llm_provider import get_llm_provider
 from .services.document_processor import DocumentProcessor
 from .services.chunker import TextChunker
+from .services.embedding_service import EmbeddingService
 
 app = FastAPI(
     title="LogicAI Service",
@@ -16,6 +17,7 @@ app = FastAPI(
 
 document_processor = DocumentProcessor()
 text_chunker = TextChunker()
+embedding_service = EmbeddingService()
 
 class EchoRequest(BaseModel):
     message: str
@@ -46,6 +48,13 @@ class ChunkRequest(BaseModel):
     chunk_overlap: int = Field(default=100, ge=0, description="Sliding window overlap size")
     document_id: Optional[str] = Field(default="", description="Optional associated document ID")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata to attach to chunks")
+
+class EmbeddingGenerateRequest(BaseModel):
+    text: str = Field(..., description="Input text to embed")
+
+class SimilarityRequest(BaseModel):
+    query: str = Field(..., description="Query string")
+    candidates: List[str] = Field(..., min_items=1, description="Candidate strings to compare against query")
 
 @app.get("/health")
 def health_check():
@@ -130,3 +139,28 @@ def chunk_document(payload: ChunkRequest):
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chunking failed: {str(e)}")
+
+@app.post("/api/v1/embeddings/generate")
+def generate_embedding(payload: EmbeddingGenerateRequest):
+    if not payload.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    
+    vector = embedding_service.generate_embedding(payload.text)
+    return {
+        "success": True,
+        "dimensions": len(vector),
+        "embedding": vector
+    }
+
+@app.post("/api/v1/embeddings/similarity")
+def calculate_similarity(payload: SimilarityRequest):
+    if not payload.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    
+    rankings = embedding_service.rank_candidates(payload.query, payload.candidates)
+    return {
+        "success": True,
+        "query": payload.query,
+        "candidate_count": len(payload.candidates),
+        "rankings": rankings
+    }

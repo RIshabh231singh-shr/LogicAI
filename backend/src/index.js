@@ -7,7 +7,9 @@ const {
   sendEchoToAIService, 
   sendChatToAIService, 
   uploadDocumentToAIService,
-  chunkDocumentWithAIService
+  chunkDocumentWithAIService,
+  generateEmbeddingWithAIService,
+  calculateSimilarityWithAIService
 } = require('./services/aiServiceClient');
 
 const app = express();
@@ -139,6 +141,59 @@ app.post('/api/documents/chunk', async (req, res) => {
     return res.status(502).json({
       success: false,
       error: 'Bad Gateway: Document chunking failed',
+      details: error.message
+    });
+  }
+});
+
+// Generate Embedding Endpoint
+app.post('/api/embeddings/generate', async (req, res) => {
+  const { text } = req.body;
+
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ error: 'Field "text" is required and cannot be empty' });
+  }
+
+  try {
+    const aiResponse = await generateEmbeddingWithAIService(text.trim());
+    return res.status(200).json({
+      success: true,
+      gateway: 'node-backend',
+      data: aiResponse
+    });
+  } catch (error) {
+    console.error('Embedding generation error:', error.message);
+    return res.status(502).json({
+      success: false,
+      error: 'Bad Gateway: Embedding generation failed',
+      details: error.message
+    });
+  }
+});
+
+// Similarity Ranking Endpoint
+app.post('/api/embeddings/similarity', async (req, res) => {
+  const { query, candidates } = req.body;
+
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return res.status(400).json({ error: 'Field "query" is required and cannot be empty' });
+  }
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return res.status(400).json({ error: 'Field "candidates" must be a non-empty array' });
+  }
+
+  try {
+    const aiResponse = await calculateSimilarityWithAIService(query.trim(), candidates);
+    return res.status(200).json({
+      success: true,
+      gateway: 'node-backend',
+      data: aiResponse
+    });
+  } catch (error) {
+    console.error('Similarity calculation error:', error.message);
+    return res.status(502).json({
+      success: false,
+      error: 'Bad Gateway: Similarity calculation failed',
       details: error.message
     });
   }

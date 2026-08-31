@@ -145,9 +145,82 @@ async function chunkDocumentWithAIService(chunkPayload) {
   }
 }
 
+/**
+ * Generates vector embedding from Python AI service.
+ * @param {string} text 
+ * @returns {Promise<object>}
+ */
+async function generateEmbeddingWithAIService(text) {
+  const endpoint = `${AI_SERVICE_URL}/api/v1/embeddings/generate`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`AI Service Error (${response.status}): ${errorData.detail || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('AI Service embedding generation timed out after 5000ms');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Calculates similarity ranking between query and candidates via Python AI service.
+ * @param {string} query 
+ * @param {Array<string>} candidates 
+ * @returns {Promise<object>}
+ */
+async function calculateSimilarityWithAIService(query, candidates) {
+  const endpoint = `${AI_SERVICE_URL}/api/v1/embeddings/similarity`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, candidates }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`AI Service Error (${response.status}): ${errorData.detail || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('AI Service similarity calculation timed out after 10000ms');
+    }
+    throw error;
+  }
+}
+
 module.exports = {
   sendEchoToAIService,
   sendChatToAIService,
   uploadDocumentToAIService,
   chunkDocumentWithAIService,
+  generateEmbeddingWithAIService,
+  calculateSimilarityWithAIService,
 };
