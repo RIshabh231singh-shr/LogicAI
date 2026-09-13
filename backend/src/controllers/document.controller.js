@@ -16,11 +16,28 @@ const { query } = require('../config/db');
 async function uploadDocument(req, res, next) {
   try {
     const userId = req.user.id;
-    const projectId = req.body.project_id || req.body.projectId || null;
+    let projectId = req.body.project_id || req.body.projectId || null;
     const file = req.file;
 
-    // Validate project ownership if projectId provided
-    if (projectId) {
+    // If no project_id provided, automatically attach to user's project, or create a default one
+    if (!projectId) {
+      const existingProj = await query(
+        'SELECT id FROM projects WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1',
+        [userId]
+      );
+      if (existingProj.rows.length > 0) {
+        projectId = existingProj.rows[0].id;
+      } else {
+        const newProj = await query(
+          `INSERT INTO projects (user_id, name, description)
+           VALUES ($1, 'Default Workspace', 'Primary workspace for architecture analysis and documents')
+           RETURNING id`,
+          [userId]
+        );
+        projectId = newProj.rows[0].id;
+      }
+    } else {
+      // Validate project ownership if projectId provided
       const projCheck = await query('SELECT id FROM projects WHERE id = $1 AND user_id = $2', [
         projectId,
         userId,

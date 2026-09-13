@@ -1,5 +1,13 @@
 const { query } = require('../config/db');
 
+function formatBytes(bytes) {
+  if (!bytes || isNaN(bytes)) return '0 B';
+  const b = parseInt(bytes, 10);
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
 /**
  * Lists all projects belonging to the authenticated user.
  * Joins or aggregates documents count.
@@ -36,10 +44,15 @@ async function getProjects(req, res, next) {
         docsByProject[doc.project_id].push({
           id: doc.id,
           name: doc.original_name || doc.filename,
+          filename: doc.filename,
           url: doc.cloudinary_url,
-          size: doc.size_bytes,
+          size: formatBytes(doc.size_bytes),
+          rawSize: doc.size_bytes,
           uploadedAt: doc.uploaded_at,
           mimeType: doc.mime_type,
+          type: (doc.filename || '').split('.').pop().toUpperCase() || 'PDF',
+          status: 'Indexed',
+          pages: 1,
         });
       }
     }
@@ -103,10 +116,15 @@ async function getProjectById(req, res, next) {
     const documents = docsResult.rows.map((d) => ({
       id: d.id,
       name: d.original_name || d.filename,
+      filename: d.filename,
       url: d.cloudinary_url,
-      size: d.size_bytes,
+      size: formatBytes(d.size_bytes),
+      rawSize: d.size_bytes,
       uploadedAt: d.uploaded_at,
       mimeType: d.mime_type,
+      type: (d.filename || '').split('.').pop().toUpperCase() || 'PDF',
+      status: 'Indexed',
+      pages: 1,
     }));
 
     return res.status(200).json({

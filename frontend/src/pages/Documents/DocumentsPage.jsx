@@ -29,15 +29,33 @@ export default function DocumentsPage() {
   const [uploadError, setUploadError] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [rawTextFallback, setRawTextFallback] = useState('');
+  const [apiDocuments, setApiDocuments] = useState([]);
   const fileInputRef = useRef(null);
 
-  const documents = selectedProject?.documents || [];
+  const fetchDirectDocs = async () => {
+    try {
+      const res = await documentsApi.getDocuments(selectedProject?.id);
+      if (res && res.documents) {
+        setApiDocuments(res.documents);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch documents directly:', err);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchDirectDocs();
+  }, [selectedProject?.id]);
+
+  const documents = (selectedProject?.documents && selectedProject.documents.length > 0)
+    ? selectedProject.documents
+    : apiDocuments;
 
   const filteredDocs = useMemo(() => {
     if (!searchQuery.trim()) return documents;
     const q = searchQuery.toLowerCase();
     return documents.filter(
-      (d) => d.name.toLowerCase().includes(q) || d.type.toLowerCase().includes(q)
+      (d) => (d.name || d.filename || '').toLowerCase().includes(q) || (d.type || '').toLowerCase().includes(q)
     );
   }, [documents, searchQuery]);
 
@@ -77,6 +95,7 @@ export default function DocumentsPage() {
         if (selectedProject) {
           await refreshProjects();
         }
+        await fetchDirectDocs();
       } else {
         // Chunk raw text
         setUploadProgress(50);

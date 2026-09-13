@@ -50,15 +50,18 @@ export function WorkspaceProvider({ children }) {
     try {
       const data = await projectsApi.getProjects();
       setProjects(data);
-      if (data.length > 0 && !selectedProjectId) {
-        setSelectedProjectId(data[0].id);
+      if (data.length > 0) {
+        setSelectedProjectId((prev) => {
+          if (prev && data.some((p) => p.id === prev)) return prev;
+          return data[0].id;
+        });
       }
     } catch (err) {
       console.error('Failed to load projects:', err);
     } finally {
       setLoadingProjects(false);
     }
-  }, [currentUser, selectedProjectId]);
+  }, [currentUser]);
 
   const checkHealth = useCallback(async () => {
     try {

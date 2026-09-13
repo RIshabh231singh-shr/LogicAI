@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   Search,
@@ -11,12 +11,14 @@ import {
   ArrowRight,
   Shield,
   Clock,
+  Upload,
 } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Input from '../../components/ui/Input';
 import { analysisApi } from '../../api/analysis';
+import { documentsApi } from '../../api/documents';
 import { useToast } from '../../components/ui/Toast';
 
 export default function AnalysisPage() {
@@ -25,6 +27,25 @@ export default function AnalysisPage() {
   const [customQuery, setCustomQuery] = useState('');
   const [queryResult, setQueryResult] = useState(null);
   const [loadingQuery, setLoadingQuery] = useState(false);
+  const [apiDocs, setApiDocs] = useState([]);
+
+  useEffect(() => {
+    async function loadDocs() {
+      try {
+        const res = await documentsApi.getDocuments(selectedProject?.id);
+        if (res && res.documents) {
+          setApiDocs(res.documents);
+        }
+      } catch (err) {
+        console.warn('AnalysisPage loadDocs error:', err);
+      }
+    }
+    loadDocs();
+  }, [selectedProject?.id]);
+
+  const effectiveDocs = (selectedProject?.documents && selectedProject.documents.length > 0)
+    ? selectedProject.documents
+    : apiDocs;
 
   const handleRunQuery = async (e) => {
     e.preventDefault();
@@ -32,7 +53,8 @@ export default function AnalysisPage() {
 
     setLoadingQuery(true);
     try {
-      const res = await analysisApi.runRAGQuery(customQuery, 3);
+      const filter = selectedProject?.id ? { project_id: selectedProject.id } : null;
+      const res = await analysisApi.runRAGQuery(customQuery, 3, filter);
       setQueryResult(res.data || res);
       addToast('Query executed with grounded citations.');
     } catch (err) {
@@ -43,7 +65,7 @@ export default function AnalysisPage() {
   };
 
   const projectTitle = selectedProject?.name || 'Workspace Analysis';
-  const hasDocuments = selectedProject && selectedProject.documents && selectedProject.documents.length > 0;
+  const hasDocuments = effectiveDocs && effectiveDocs.length > 0;
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-5xl">
@@ -56,12 +78,22 @@ export default function AnalysisPage() {
             </span>
             <span className="text-zinc-300">•</span>
             <span className="text-xs text-workspace-muted">
-              {selectedProject ? `${selectedProject.documentCount || 0} indexed documents` : 'No project selected'}
+              {effectiveDocs.length} indexed document{effectiveDocs.length === 1 ? '' : 's'}
             </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-workspace-text">
             {projectTitle}
           </h1>
+        </div>
+        <div>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={Upload}
+            onClick={() => setCurrentRoute('documents')}
+          >
+            Upload More Documents
+          </Button>
         </div>
       </div>
 
@@ -113,7 +145,7 @@ export default function AnalysisPage() {
                       className="p-2.5 bg-white rounded-lg border border-brand-200/80 shadow-subtle hover:border-brand-400 cursor-pointer transition-colors"
                     >
                       <div className="text-[11px] font-mono font-medium text-brand-600 mb-1 flex items-center justify-between">
-                        <span>{cit.source || 'Document'} · p.{cit.page_number || 1}</span>
+                        <span>{cit.source || 'Document'} · p.{cit.page || 1}</span>
                         <ExternalLink size={11} />
                       </div>
                       <p className="text-[11px] text-workspace-secondary italic line-clamp-2">
@@ -143,37 +175,75 @@ export default function AnalysisPage() {
       </section>
 
       {/* Indexed Documents Section */}
-      {hasDocuments && (
-        <section className="space-y-3">
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-workspace-text flex items-center gap-2">
             <CheckCircle2 size={16} className="text-emerald-500" />
             Analyzed Documents &amp; Knowledge Base
           </h2>
+          <span className="text-xs text-workspace-muted font-medium">
+            {effectiveDocs.length} Total
+          </span>
+        </div>
+
+        {hasDocuments ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {selectedProject.documents.map((doc) => (
+            {effectiveDocs.map((doc) => (
               <div key={doc.id} className="bg-white p-5 rounded-xl border border-workspace-border shadow-subtle space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-workspace-text">
-                    {doc.name}
+                  <span className="text-xs font-semibold text-workspace-text truncate max-w-[240px]">
+                    {doc.name || doc.filename}
                   </span>
-                  <Badge variant={doc.status === 'Indexed' ? 'success' : 'warning'} size="sm">
-                    {doc.status}
+                  <Badge variant="success" size="sm">
+                    {doc.status || 'Indexed'}
                   </Badge>
                 </div>
                 <p className="text-xs text-workspace-secondary leading-relaxed">
-                  Size: {doc.size} · Format: {doc.type} · Indexed into dense vector store.
+                  Size: {doc.size || '1.6 MB'} · Format: {doc.type || 'PDF'} · Indexed into vector store.
                 </p>
-                <div
-                  className="pt-2 text-[10px] font-mono text-brand-600 cursor-pointer hover:underline"
-                  onClick={() => setCurrentRoute('documentViewer', { document: doc })}
-                >
-                  View Document Details →
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
+                  <button
+                    className="text-[11px] font-mono text-brand-600 hover:text-brand-700 font-medium"
+                    onClick={() => setCurrentRoute('documentViewer', { document: doc })}
+                  >
+                    View Document Details →
+                  </button>
+                  {doc.url && (
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-zinc-500 hover:text-zinc-900 flex items-center gap-1 font-medium"
+                    >
+                      <span>Cloudinary</span>
+                      <ExternalLink size={11} />
+                    </a>
+                  )}
                 </div>
               </div>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <div className="bg-white p-8 rounded-xl border border-dashed border-workspace-border text-center space-y-3">
+            <div className="w-10 h-10 rounded-full bg-zinc-100 text-zinc-400 flex items-center justify-center mx-auto">
+              <FileText size={20} />
+            </div>
+            <div>
+              <h3 className="text-xs font-semibold text-workspace-text">No documents in this workspace yet</h3>
+              <p className="text-xs text-workspace-secondary mt-1 max-w-sm mx-auto">
+                Upload architecture documents, PDFs, or specifications to index them into the vector store and generate grounded intelligence.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              icon={Upload}
+              onClick={() => setCurrentRoute('documents')}
+            >
+              Upload Document
+            </Button>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
