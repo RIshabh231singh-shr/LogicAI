@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 
 const healthRoutes = require('./routes/health.routes');
+const authRoutes = require('./routes/auth.routes');
+const projectRoutes = require('./routes/project.routes');
 const aiRoutes = require('./routes/ai.routes');
 const chatRoutes = require('./routes/chat.routes');
 const documentRoutes = require('./routes/document.routes');
@@ -20,6 +22,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Register Routes
 app.use('/', healthRoutes);
+app.use('/api/health', healthRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/projects', projectRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/documents', documentRoutes);

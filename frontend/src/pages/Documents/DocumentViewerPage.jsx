@@ -17,6 +17,7 @@ export default function DocumentViewerPage() {
   const { selectedDocument, setCurrentRoute } = useWorkspace();
   const [currentPage, setCurrentPage] = useState(1);
   const totalPages = selectedDocument?.pages || 24;
+  const docName = selectedDocument?.name || selectedDocument?.filename || 'Document';
 
   const currentContent = selectedDocument?.content || 
     `Document: ${docName}\n\nPage ${currentPage} of ${totalPages}\n\nContent indexed into vector store. Use the Analysis page or RAG Query to retrieve grounded citations and inspect parsed chunks.`;
@@ -39,6 +40,17 @@ export default function DocumentViewerPage() {
             <Badge variant="success" size="sm">
               Indexed
             </Badge>
+            {selectedDocument?.url && (
+              <a
+                href={selectedDocument.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-[11px] text-brand-600 hover:text-brand-700 underline font-medium ml-2"
+              >
+                <span>Cloudinary PDF</span>
+                <ExternalLink size={12} />
+              </a>
+            )}
           </div>
         </div>
 

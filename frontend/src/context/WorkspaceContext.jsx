@@ -1,19 +1,51 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { projectsApi } from '../api/projects';
 import { systemApi } from '../api/system';
+import { authApi } from '../api/auth';
 
 const WorkspaceContext = createContext(null);
 
 export function WorkspaceProvider({ children }) {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [currentRoute, setCurrentRoute] = useState('overview'); // overview, projects, projectDetails, documents, documentViewer, analysis, comparison, evaluation, observability, settings
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [selectedDocument, setSelectedDocument] = useState(null);
-  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [loadingProjects, setLoadingProjects] = useState(false);
   const [systemHealth, setSystemHealth] = useState({ gateway: 'checking', ai: 'checking' });
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
+  // Check auth state on mount
+  useEffect(() => {
+    async function checkAuth() {
+      if (authApi.isAuthenticated()) {
+        try {
+          const res = await authApi.getMe();
+          if (res && res.user) {
+            setCurrentUser(res.user);
+          } else {
+            authApi.logout();
+            setCurrentUser(null);
+          }
+        } catch (err) {
+          console.warn('Auth check failed, clearing token:', err.message);
+          authApi.logout();
+          setCurrentUser(null);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+      setAuthLoading(false);
+    }
+    checkAuth();
+  }, []);
+
   const fetchProjects = useCallback(async () => {
+    if (!currentUser) {
+      setProjects([]);
+      return;
+    }
     setLoadingProjects(true);
     try {
       const data = await projectsApi.getProjects();
@@ -26,7 +58,7 @@ export function WorkspaceProvider({ children }) {
     } finally {
       setLoadingProjects(false);
     }
-  }, [selectedProjectId]);
+  }, [currentUser, selectedProjectId]);
 
   const checkHealth = useCallback(async () => {
     try {
@@ -45,11 +77,18 @@ export function WorkspaceProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    fetchProjects();
+    if (currentUser) {
+      fetchProjects();
+    } else {
+      setProjects([]);
+    }
+  }, [currentUser, fetchProjects]);
+
+  useEffect(() => {
     checkHealth();
     const interval = setInterval(checkHealth, 120000);
     return () => clearInterval(interval);
-  }, [fetchProjects, checkHealth]);
+  }, [checkHealth]);
 
   // Global Keyboard shortcuts (Ctrl+K / Cmd+K)
   useEffect(() => {
@@ -62,6 +101,19 @@ export function WorkspaceProvider({ children }) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  const loginUser = (user) => {
+    setCurrentUser(user);
+    setCurrentRoute('overview');
+  };
+
+  const logoutUser = () => {
+    authApi.logout();
+    setCurrentUser(null);
+    setProjects([]);
+    setSelectedProjectId(null);
+    setSelectedDocument(null);
+  };
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId) || projects[0] || null;
 
@@ -79,6 +131,11 @@ export function WorkspaceProvider({ children }) {
   return (
     <WorkspaceContext.Provider
       value={{
+        currentUser,
+        authLoading,
+        isAuthenticated: Boolean(currentUser),
+        loginUser,
+        logoutUser,
         currentRoute,
         setCurrentRoute: navigateTo,
         projects,

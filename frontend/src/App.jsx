@@ -2,6 +2,7 @@ import React from 'react';
 import { WorkspaceProvider, useWorkspace } from './context/WorkspaceContext';
 import { ToastProvider } from './components/ui/Toast';
 import AppLayout from './components/layout/AppLayout';
+import AuthPage from './pages/Auth/AuthPage';
 
 // Page components
 import OverviewPage from './pages/Overview/OverviewPage';
@@ -45,13 +46,34 @@ function RouterOutlet() {
   }
 }
 
+function MainApp() {
+  const { isAuthenticated, authLoading, loginUser } = useWorkspace();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8F8F6] flex flex-col items-center justify-center">
+        <div className="w-8 h-8 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-xs text-zinc-500 font-medium">Initializing LogicAI workspace...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AuthPage onAuthSuccess={loginUser} />;
+  }
+
+  return (
+    <AppLayout>
+      <RouterOutlet />
+    </AppLayout>
+  );
+}
+
 export default function App() {
   return (
     <ToastProvider>
       <WorkspaceProvider>
-        <AppLayout>
-          <RouterOutlet />
-        </AppLayout>
+        <MainApp />
       </WorkspaceProvider>
     </ToastProvider>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, FolderKanban } from 'lucide-react';
+import { ChevronRight, FolderKanban, LogOut } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 
 const ROUTE_LABELS = {
@@ -17,7 +17,17 @@ const ROUTE_LABELS = {
 };
 
 export default function Topbar() {
-  const { currentRoute, setCurrentRoute, selectedProject, projects, setSelectedProjectId } = useWorkspace();
+  const { currentRoute, setCurrentRoute, selectedProject, projects, setSelectedProjectId, currentUser, logoutUser } = useWorkspace();
+
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  };
 
   return (
     <header className="h-16 bg-white border-b border-workspace-border sticky top-0 z-20 px-8 flex items-center justify-between shadow-subtle">
@@ -43,7 +53,7 @@ export default function Topbar() {
         )}
       </div>
 
-      {/* Right controls: Project quick-switch & User menu */}
+      {/* Right controls: Project quick-switch & User profile / Logout */}
       <div className="flex items-center gap-4">
         {projects.length > 0 && (
           <div className="flex items-center gap-2">
@@ -62,14 +72,29 @@ export default function Topbar() {
           </div>
         )}
 
-        {/* Clean avatar badge */}
-        <div className="flex items-center gap-2 pl-3 border-l border-workspace-border">
-          <div className="w-7 h-7 rounded-full bg-zinc-800 text-white text-[11px] font-semibold flex items-center justify-center">
-            RS
+        {/* Dynamic User Profile Badge & Logout */}
+        <div className="flex items-center gap-3 pl-3 border-l border-workspace-border">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-zinc-800 text-white text-[11px] font-semibold flex items-center justify-center">
+              {getInitials(currentUser?.name)}
+            </div>
+            <div className="hidden sm:flex flex-col text-left">
+              <span className="text-xs font-medium text-workspace-text leading-none">
+                {currentUser?.name || 'User'}
+              </span>
+              <span className="text-[10px] text-workspace-muted leading-tight mt-0.5">
+                {currentUser?.email || ''}
+              </span>
+            </div>
           </div>
-          <span className="text-xs font-medium text-workspace-text hidden sm:inline">
-            Rishabh Singh
-          </span>
+
+          <button
+            onClick={logoutUser}
+            title="Log Out"
+            className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+          >
+            <LogOut size={15} />
+          </button>
         </div>
       </div>
     </header>

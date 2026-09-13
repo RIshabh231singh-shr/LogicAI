@@ -64,19 +64,18 @@ export default function DocumentsPage() {
       let docType = selectedFile ? selectedFile.name.split('.').pop().toUpperCase() : 'TXT';
 
       if (selectedFile) {
-        // Attempt backend upload with Axios progress
-        try {
-          await documentsApi.uploadDocument(selectedFile, (pct) => {
+        // Real backend upload to Cloudinary & PGVector with progress
+        const uploadRes = await documentsApi.uploadDocument(
+          selectedFile,
+          (pct) => {
             setUploadProgress(pct);
-          });
-        } catch {
-          // Fallback: chunk the text representation
-          setUploadProgress(60);
-          await documentsApi.chunkText({
-            text: `Document ${selectedFile.name} uploaded to ${selectedProject?.name || 'Project'}`,
-            chunkSize: 300,
-            chunkOverlap: 50,
-          });
+          },
+          selectedProject?.id
+        );
+        setUploadProgress(100);
+
+        if (selectedProject) {
+          await refreshProjects();
         }
       } else {
         // Chunk raw text
@@ -90,27 +89,23 @@ export default function DocumentsPage() {
           setUploadProgress(80);
           await documentsApi.storeChunks(chunkRes.chunks);
         }
+        setUploadProgress(100);
+
+        if (selectedProject) {
+          await projectsApi.addDocumentToProject(selectedProject.id, {
+            id: `doc_${Date.now()}`,
+            name: docName,
+            type: docType,
+            size: docSize,
+            pages: 1,
+            status: 'Indexed',
+            uploadedAt: 'Just now',
+          });
+          await refreshProjects();
+        }
       }
 
-      setUploadProgress(100);
-
-      // Add to project
-      const newDoc = {
-        id: `doc_${Date.now()}`,
-        name: docName,
-        type: docType,
-        size: docSize,
-        pages: 12,
-        status: 'Indexed',
-        uploadedAt: 'Just now',
-      };
-
-      if (selectedProject) {
-        await projectsApi.addDocumentToProject(selectedProject.id, newDoc);
-        await refreshProjects();
-      }
-
-      addToast(`Document "${docName}" uploaded and indexed into vector store.`);
+      addToast(`Document "${docName}" uploaded to Cloudinary and indexed into vector store.`);
       setSelectedFile(null);
       setRawTextFallback('');
       setUploadModalOpen(false);

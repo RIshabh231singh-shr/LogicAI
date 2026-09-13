@@ -1,12 +1,15 @@
-import { apiClient, aiClient } from './client';
+import { apiClient } from './client';
 
 export const documentsApi = {
   /**
-   * Uploads an actual file (PDF, TXT, DOCX) to the ingestion pipeline with progress monitoring
+   * Uploads an actual file (PDF, TXT, DOCX) to the ingestion pipeline (Cloudinary + PGVector)
    */
-  uploadDocument: (file, onUploadProgress) => {
+  uploadDocument: (file, onUploadProgress, projectId = null) => {
     const formData = new FormData();
     formData.append('file', file);
+    if (projectId) {
+      formData.append('project_id', projectId);
+    }
 
     return apiClient.post('/api/documents/upload', formData, {
       headers: {
@@ -19,6 +22,21 @@ export const documentsApi = {
         }
       },
     });
+  },
+
+  /**
+   * Fetches indexed documents for the authenticated user (and optional project)
+   */
+  getDocuments: (projectId = null) => {
+    const params = projectId ? { project_id: projectId } : {};
+    return apiClient.get('/api/documents', { params });
+  },
+
+  /**
+   * Deletes a document from Cloudinary and PostgreSQL
+   */
+  deleteDocument: (documentId) => {
+    return apiClient.delete(`/api/documents/${documentId}`);
   },
 
   /**

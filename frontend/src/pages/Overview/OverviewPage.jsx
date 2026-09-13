@@ -18,7 +18,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import CreateProjectDialog from '../Projects/CreateProjectDialog';
 
 export default function OverviewPage() {
-  const { projects, loadingProjects, setCurrentRoute, setSelectedProjectId } = useWorkspace();
+  const { projects, loadingProjects, setCurrentRoute, setSelectedProjectId, currentUser } = useWorkspace();
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const totalDocuments = projects.reduce((acc, p) => acc + (p.documentCount || 0), 0);
@@ -30,7 +30,7 @@ export default function OverviewPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-workspace-border">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-workspace-text">
-            Good morning, Rishabh
+            Welcome, {currentUser?.name?.split(' ')[0] || 'there'}
           </h1>
           <p className="text-xs text-workspace-secondary mt-1">
             Your intelligence workspaces and analyzed project documents at a glance.
