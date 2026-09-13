@@ -2,10 +2,10 @@
   "name": "logicai-backend",
   "version": "1.0.0",
   "description": "LogicAI Node.js Express API Gateway",
-  "main": "src/index.js",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon index.js"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

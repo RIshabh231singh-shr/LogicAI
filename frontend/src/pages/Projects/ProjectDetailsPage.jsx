@@ -120,24 +120,25 @@ export default function ProjectDetailsPage() {
             <div className="bg-white p-5 rounded-xl border border-workspace-border shadow-subtle space-y-2">
               <div className="text-xs font-medium text-workspace-muted flex items-center gap-1.5">
                 <CheckCircle2 size={14} className="text-emerald-500" />
-                Key Verified Decisions
+                Workspace Status
               </div>
-              <ul className="text-xs text-workspace-secondary space-y-1.5 list-disc list-inside">
-                <li>Decoupled microservice architecture with Node API Gateway proxy layer</li>
-                <li>PostgreSQL pgvector used for 384-dimensional cosine similarity indexing</li>
-                <li>Grounded citations enforce evidence trace to source document pages</li>
-              </ul>
+              <p className="text-xs text-workspace-secondary leading-relaxed">
+                {selectedProject.documentCount > 0
+                  ? `${selectedProject.documentCount} documents indexed with vector embeddings and grounded citations.`
+                  : 'No documents uploaded yet. Upload architecture specifications or RFCs to extract decisions.'}
+              </p>
             </div>
 
             <div className="bg-white p-5 rounded-xl border border-workspace-border shadow-subtle space-y-2">
               <div className="text-xs font-medium text-workspace-muted flex items-center gap-1.5">
                 <AlertTriangle size={14} className="text-amber-500" />
-                Identified Technical Risks
+                Technical Risks
               </div>
-              <ul className="text-xs text-workspace-secondary space-y-1.5 list-disc list-inside">
-                <li>Context window limits on long RFP documents require 500-char sliding chunking</li>
-                <li>Prompt injection threat vectors mitigated via multi-layer guardrail inspection</li>
-              </ul>
+              <p className="text-xs text-workspace-secondary leading-relaxed">
+                {selectedProject.risksCount > 0
+                  ? `${selectedProject.risksCount} risk vectors identified in system documentation.`
+                  : 'Run analysis on indexed documents to uncover operational and architectural risk vectors.'}
+              </p>
             </div>
           </div>
         </div>

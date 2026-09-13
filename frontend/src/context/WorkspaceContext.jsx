@@ -47,6 +47,8 @@ export function WorkspaceProvider({ children }) {
   useEffect(() => {
     fetchProjects();
     checkHealth();
+    const interval = setInterval(checkHealth, 120000);
+    return () => clearInterval(interval);
   }, [fetchProjects, checkHealth]);
 
   // Global Keyboard shortcuts (Ctrl+K / Cmd+K)

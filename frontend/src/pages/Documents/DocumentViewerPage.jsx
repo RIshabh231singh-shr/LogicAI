@@ -18,17 +18,8 @@ export default function DocumentViewerPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const totalPages = selectedDocument?.pages || 24;
 
-  const docName = selectedDocument?.name || 'Architecture_Overview_Specification.pdf';
-
-  // Sample page contents
-  const samplePageContent = {
-    1: '1. EXECUTIVE SUMMARY & SYSTEM TOPOLOGY\n\nThe LogicAI platform implements an enterprise document intelligence and operations platform. All document chunks are indexed using 384-dimensional dense vectors stored in pgvector. The Node.js Express Gateway acts as a proxy boundary enforcing authentication, rate limits, and request logging.',
-    2: '2. VECTOR RETRIEVAL & HYBRID SEARCH\n\nRetrieval employs a hybrid fusion algorithm combining BM25 keyword matching with dense vector similarity via Reciprocal Rank Fusion (RRF). Queries are dynamically rewritten and expanded into multi-query representations to avoid vocabulary mismatch.',
-    3: '3. SECURITY & ACCESS CONTROL GATES\n\nDocument level permissions follow a 4-tier Role-Based Access Control (RBAC) matrix ranging from Level 0 (Guest) to Level 3 (System Admin). Sensitive PII elements such as SSNs and credentials are automatically scrubbed via regex filter pipelines before vector indexing.',
-  };
-
-  const currentContent = samplePageContent[currentPage] || 
-    `Page ${currentPage} of ${docName}\n\nDetailed architectural specifications, interface definitions, schemas, and security boundaries. All findings extracted from this page are indexed into the semantic vector store with verified citation offsets.`;
+  const currentContent = selectedDocument?.content || 
+    `Document: ${docName}\n\nPage ${currentPage} of ${totalPages}\n\nContent indexed into vector store. Use the Analysis page or RAG Query to retrieve grounded citations and inspect parsed chunks.`;
 
   return (
     <div className="space-y-4 animate-fadeIn flex flex-col h-[calc(100vh-8rem)]">

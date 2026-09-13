@@ -7,40 +7,30 @@ export const comparisonApi = {
   compareProjects: async (projectA, projectB) => {
     return {
       timestamp: new Date().toISOString(),
-      projectA: { id: projectA.id, name: projectA.name },
-      projectB: { id: projectB.id, name: projectB.name },
+      projectA: { id: projectA?.id, name: projectA?.name || 'Project A' },
+      projectB: { id: projectB?.id, name: projectB?.name || 'Project B' },
       categories: [
         {
-          category: 'Architecture & System Topology',
-          projectAValue: projectA.architectureSummary || 'Distributed Microservices architecture with API Gateway',
-          projectBValue: projectB.architectureSummary || 'Event-driven message-bus architecture with streaming workers',
-          assessment: 'Project A emphasizes synchronous REST API communication; Project B focuses on asynchronous resilient event streaming.',
+          category: 'Architecture & System Summary',
+          projectAValue: projectA?.architectureSummary || 'No summary available.',
+          projectBValue: projectB?.architectureSummary || 'No summary available.',
+          assessment: projectA?.architectureSummary && projectB?.architectureSummary
+            ? 'Dynamic comparison derived from analyzed project specifications.'
+            : 'Upload documents to generate and compare architectural topology summaries.',
         },
         {
-          category: 'Data Storage & Vector Indexing',
-          projectAValue: 'PostgreSQL with pgvector for unified relational + 384-dim embedding search',
-          projectBValue: 'Redis for in-memory semantic caching + distributed idempotency key stores',
-          assessment: 'Complementary storage patterns; Project A provides deep semantic retrieval, Project B ensures sub-2ms cache hits.',
+          category: 'Document Volume & Ingestion',
+          projectAValue: `${projectA?.documentCount || 0} documents (${projectA?.documents?.length || 0} loaded)`,
+          projectBValue: `${projectB?.documentCount || 0} documents (${projectB?.documents?.length || 0} loaded)`,
+          assessment: 'Comparison of total indexed knowledge base volume.',
         },
         {
-          category: 'Security & Access Control',
-          projectAValue: 'Role-Based Access Control (RBAC Level 0-3) with PII redaction and document clearance gates',
-          projectBValue: 'PCI-DSS Level 1 compliance with HMAC webhook verification and secret token rotation',
-          assessment: 'Both enforce strict isolation; Project A guards against prompt injection; Project B protects transaction integrity.',
+          category: 'Findings & Risk Density',
+          projectAValue: `${projectA?.findingsCount || 0} grounded findings, ${projectA?.risksCount || 0} risk vectors`,
+          projectBValue: `${projectB?.findingsCount || 0} grounded findings, ${projectB?.risksCount || 0} risk vectors`,
+          assessment: 'Discovered architectural decisions and operational risk factors.',
         },
-        {
-          category: 'Resilience & Error Handling',
-          projectAValue: 'Centralized Axios/Express interceptors with normalized HTTP 4xx/5xx boundaries',
-          projectBValue: 'Exponential backoff with jitter, dead-letter queues, and idempotent request deduplication',
-          assessment: 'Project B contains more robust retry handling for external third-party network failures.',
-        },
-        {
-          category: 'Identified Technical Risks',
-          projectAValue: `${projectA.risksCount || 2} documented risk vectors (context window truncation, rate limits)`,
-          projectBValue: `${projectB.risksCount || 1} documented risk vector (webhook processing delay under peak load)`,
-          assessment: 'Both architectures possess well-documented mitigation strategies.',
-        }
-      ]
+      ],
     };
-  }
+  },
 };

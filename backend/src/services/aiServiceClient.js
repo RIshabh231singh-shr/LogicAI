@@ -1,4 +1,6 @@
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const config = require('../config/env');
+
+const AI_SERVICE_URL = config.aiServiceUrl || 'http://localhost:8000';
 
 /**
  * Sends a message to the Python AI service echo endpoint.
