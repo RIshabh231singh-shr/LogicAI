@@ -11,7 +11,13 @@ class RAGPipeline:
     
     def __init__(self, vector_store: VectorStore = None, llm_provider: BaseLLMProvider = None):
         self.vector_store = vector_store or VectorStore()
-        self.llm_provider = llm_provider or get_llm_provider()
+        self._llm_provider = llm_provider
+
+    @property
+    def llm_provider(self) -> BaseLLMProvider:
+        if self._llm_provider:
+            return self._llm_provider
+        return get_llm_provider()
 
     def construct_grounded_prompt(self, query: str, retrieved_chunks: List[Dict[str, Any]]) -> Tuple[str, str]:
         """Constructs a strict system prompt and user prompt incorporating retrieved context."""

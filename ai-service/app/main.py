@@ -4,6 +4,9 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 import json
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from .services.llm_provider import get_llm_provider
 from .services.document_processor import DocumentProcessor
